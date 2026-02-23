@@ -249,9 +249,49 @@ emscripten module directly — see the Filesystem section above.
 
 ---
 
+## Tool-Specific Patterns
+
+Different bioinformatics tools have different compile quirks. **Always check `references/tool-specific.md` before starting** - it contains real-world patterns from 40+ tools in the biowasm project.
+
+### Quick Pattern Guide
+
+**Simple tools (seqtk, etc.):**
+```bash
+emcc tool.c -o tool.js -O2 $EM_FLAGS
+```
+
+**Autoconf tools (samtools, bcftools, htslib):**
+```bash
+autoheader && autoconf
+emconfigure ./configure --with-htslib=path
+emmake make CC=emcc AR=emar LDFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0"
+```
+
+**SIMD-optimized (minimap2):**
+- Compile both SIMD (`-msimd128`) and non-SIMD (`Makefile.simde`) versions
+- SIMD is 2-3x faster but non-SIMD ensures compatibility
+
+**Tools with x86 assembly (bowtie2):**
+- Disable architecture-specific features: `POPCNT_CAPABILITY=0`, `NO_TBB=1`
+- Look for `#ifdef __x86_64__` blocks in source
+
+**Tools bundling zlib (fastp):**
+- Use `-DDYNAMIC_ZLIB -s USE_ZLIB=1` to avoid function signature mismatches
+- Prevents crashes on `.gz` files
+
+**Tools needing async JS (bhtsne):**
+- Use `-s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=["func1","func2"]`
+- Required for progress callbacks or async API calls
+- Adds ~30-50KB to binary
+
+**See `references/tool-specific.md` for detailed patterns and debugging tips.**
+
+---
+
 ## References
 
-- See `references/dependencies.md` for compiling common deps (htslib, zlib, boost)
-- See `references/skesa.md` for SKESA-specific compile notes
+- **`references/tool-specific.md`** - Tool-specific compile patterns (minimap2, samtools, bowtie2, fastp, etc.)
+- **`references/dependencies.md`** - Compiling common deps (htslib, zlib, boost)
+- **`references/skesa.md`** - SKESA-specific compile notes
 - biowasm source: https://github.com/biowasm/biowasm
 - Emscripten docs: https://emscripten.org/docs/compiling/WebAssembly.html
